@@ -8,12 +8,22 @@ import com.fasterxml.jackson.databind.ser.impl.SimpleBeanPropertyFilter;
 import com.fasterxml.jackson.databind.ser.impl.SimpleFilterProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.hateoas.EntityModel;
+
+
+import org.springframework.hateoas.server.mvc.WebMvcLinkBuilder;
+
 import org.springframework.http.converter.json.MappingJacksonValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
 import java.util.List;
+
+
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 
 @RestController
 @Slf4j
@@ -23,28 +33,43 @@ public class UserController {
     private UserDaoService service;
 
     @GetMapping("/users")
-    public List<User> getUserList(){
+    public MappingJacksonValue getUserList() {
         List<User> list = service.getUserList();
-        //list 내용 출력
-//        for ( User user : list) {
-//            System.out.println(user);
-//            //error ,worn ,info,debug
-//            log.info(user.toString());
-//
-//        }
-        return list;
+        List<EntityModel<User>> result = new ArrayList<>();
+        //entitymodel<user>
+        list.forEach(user -> {
+            EntityModel<User> model = new EntityModel<>(user);
+
+            WebMvcLinkBuilder linkTo =
+                    linkTo(methodOn(this.getClass()).getUser(user.getId()));
+
+            model.add(linkTo.withRel("user-detail"));
+
+            result.add(model);
+        });
+
+        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.filterOutAllExcept("id", "name", "joinDate", "ssn");
+        FilterProvider provider = new SimpleFilterProvider().addFilter("UserInfo", filter);
+
+        MappingJacksonValue mapping = new MappingJacksonValue(result);
+        mapping.setFilters(provider);
+
+        return mapping;
 
     }
+
+
     // /users/1 사용자 ID
     // /users/2
     @GetMapping("users/{id}")
-    public MappingJacksonValue getUser(@PathVariable(value = "id")Integer id){
+    public MappingJacksonValue getUser(@PathVariable(value = "id") Integer id) {
         User user = service.getUser(id);
-        if (user == null ){
-           throw new UserNotFoundException("id-" +id);
+        if (user == null) {
+            throw new UserNotFoundException("id-" + id);
         }
-        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.filterOutAllExcept("id","name","joinDate");
-        FilterProvider provider = new SimpleFilterProvider().addFilter("UserInfo",filter);
+
+        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.filterOutAllExcept("id", "name", "joinDate");
+        FilterProvider provider = new SimpleFilterProvider().addFilter("UserInfo", filter);
 
         MappingJacksonValue mapping = new MappingJacksonValue(user);
         mapping.setFilters(provider);
@@ -55,14 +80,14 @@ public class UserController {
     }
 
     @GetMapping("/admin/users/{id}")
-    public MappingJacksonValue getUserByAdmin(@PathVariable(value = "id") Integer id){
-        User user =service.getUser(id);
+    public MappingJacksonValue getUserByAdmin(@PathVariable(value = "id") Integer id) {
+        User user = service.getUser(id);
 
-        if (user == null ){
-            throw new UserNotFoundException("id-" +id);
+        if (user == null) {
+            throw new UserNotFoundException("id-" + id);
         }
-        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.filterOutAllExcept("id","name","joinDate","ssn");
-        FilterProvider provider = new SimpleFilterProvider().addFilter("UserInfo",filter);
+        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.filterOutAllExcept("id", "name", "joinDate", "ssn");
+        FilterProvider provider = new SimpleFilterProvider().addFilter("UserInfo", filter);
 
         MappingJacksonValue mapping = new MappingJacksonValue(user);
         mapping.setFilters(provider);
@@ -70,4 +95,28 @@ public class UserController {
         return mapping;
     }
 
+    // SPRING BOOOT 2.1
+    @GetMapping("/hateoas/users/{id}")
+    public MappingJacksonValue retrieveUser(@PathVariable(value = "id") Integer id) {
+        User user = service.getUser(id);
+        if (user == null) {
+            throw new UserNotFoundException("id-" + id);
+        }
+        EntityModel<User> model = new EntityModel<>(user);
+
+        WebMvcLinkBuilder linkTo =
+                linkTo(methodOn(this.getClass()).getUserList());
+
+        model.add(linkTo.withRel("all-users"));
+
+        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.filterOutAllExcept("id", "name", "joinDate", "ssn");
+        FilterProvider provider = new SimpleFilterProvider().addFilter("UserInfo", filter);
+
+        MappingJacksonValue mapping = new MappingJacksonValue(model);
+        mapping.setFilters(provider);
+
+        return mapping;
+
+    }
 }
+
