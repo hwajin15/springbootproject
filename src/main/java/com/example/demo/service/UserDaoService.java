@@ -33,4 +33,21 @@ public class UserDaoService {
         return null;
     }
 
+
+
+    public User save(User user) {
+
+        list.add(user);
+        return user;
+    }
+
+
+    public User deleteById(Integer id) {
+        return null;
+
+    }
+
+//    public User update(Integer id, User user) {
+//
+//    }
 }
